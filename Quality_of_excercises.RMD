@@ -1,0 +1,85 @@
+Quality of weight Lifting Exercises
+========================================================
+
+The goal is to create model predicting if excercises were done in proper way (Class A) or with one of common mistakes (Class B to E)
+
+Loading datasets
+-----------------
+
+First I load data sets, because of epmty values I replace them with NA
+
+
+```{r}
+trainset  <- read.csv("pml-training.csv", header=TRUE, na.strings = c("", " ","NA"))
+testset  <- read.csv("pml-testing.csv", header=TRUE, na.strings = c("", " ","NA"))
+```
+
+Preprocessing
+-------------
+To create training and testing datasets I use caret and randomFores package
+
+First I get rid of near zero variance predictors
+```{r}
+library(caret)
+library(randomForest)
+nsv <- nearZeroVar(trainset,saveMetrics=FALSE)
+trainset<-trainset[,- nsv]
+```
+
+Time series variables are not usefull for model creation so I throw away cols: 1, 2, 3, 4, 5, 6
+
+```{r}
+trainset<-trainset[,-c(1,2,3,4,5,6)]
+```
+
+There are some variables in dataset which are treated as categorical and have '#DIV/0' value, like kurtosis_roll_belt for example I will omit them in model
+
+```{r}
+num<-lapply(trainset[1,],is.numeric)
+length(num)
+num<-num[-111]
+trainset<-trainset[,num==TRUE]
+```
+
+
+Model creation
+--------------
+
+I will use cross-validation, I will validate model using subset of data from training set
+
+```{r}
+set.seed(333)
+inTrain <- createDataPartition(y=trainset$classe,
+                               p=0.70, list=FALSE)
+training <- trainset[inTrain,]
+testing <- trainset[-inTrain,]
+```
+
+
+There is a lot of NA values in dataset in few collumns so variability is not so good (rather smaller than expected).
+I will use random forests classification so.
+Because of predictors with low variability I suppouse that model will have accuracy about 0.65 - 0.70. 
+
+For model and prediction I use random forest algorithm
+
+```{r}
+modFit<-randomForest(classe ~ ., data = training, na.action=na.omit) 
+modFit
+summary(modFit)
+
+pred<-predict(modFit, testing)
+confusionMatrix(pred, testing$classe)
+```
+
+As we can see model has 0.769  Accuracy for testing data
+
+
+For training data Accuracy is of course equal 1
+
+```{r}
+pred<-predict(modFit, training)
+confusionMatrix(pred, training$classe)
+```
+
+
+
